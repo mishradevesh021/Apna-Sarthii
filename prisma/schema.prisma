@@ -1,0 +1,219 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  phone        String?   @unique
+  name         String
+  passwordHash String
+  role         String    @default("CUSTOMER") // CUSTOMER | WORKER | ADMIN
+  avatarUrl    String?
+  city         String    @default("Prayagraj")
+  locality     String    @default("Civil Lines")
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  customerProfile CustomerProfile?
+  workerProfile   WorkerProfile?
+
+  // Relations
+  customerRequests ServiceRequest[] @relation("CustomerRequests")
+  workerRequests   ServiceRequest[] @relation("WorkerRequests")
+  sentMessages     Message[]        @relation("SentMessages")
+  receivedMessages Message[]        @relation("ReceivedMessages")
+  notifications    Notification[]
+  reviewsGiven     Review[]         @relation("CustomerReviews")
+  reviewsReceived  Review[]         @relation("WorkerReviews")
+  savedWorkers     SavedWorker[]    @relation("CustomerSavedWorkers")
+  savedByCustomers SavedWorker[]    @relation("WorkerSavedBy")
+  reportsFiled     Report[]         @relation("ReporterUser")
+  reportsAgainst   Report[]         @relation("ReportedUser")
+  adminActions     AdminAction[]    @relation("AdminUser")
+}
+
+model CustomerProfile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultAddress    String?
+  preferredLanguage String   @default("Hindi / English")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model WorkerProfile {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  primaryCategoryId  String
+  primaryCategory    ServiceCategory @relation(fields: [primaryCategoryId], references: [id])
+  bio                String?
+  experienceYears    Int      @default(3)
+  startingPrice      Int      @default(250) // INR
+  serviceRadiusKm    Float    @default(10.0)
+  rating             Float    @default(4.8)
+  reviewCount        Int      @default(0)
+  completedJobs      Int      @default(0)
+  responseRate       Int      @default(98) // Percentage
+  isAvailable        Boolean  @default(true)
+  isVerified         Boolean  @default(false)
+  identityVerified   Boolean  @default(false)
+  professionVerified Boolean  @default(false)
+  workingHours       String   @default("8:00 AM - 8:00 PM")
+  emergency24x7      Boolean  @default(false)
+  latitude           Float    @default(25.4358)
+  longitude          Float    @default(81.8463)
+  services           WorkerService[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model ServiceCategory {
+  id                 String   @id @default(cuid())
+  name               String   @unique
+  slug               String   @unique
+  description        String
+  iconName           String
+  colorScheme        String   @default("teal")
+  startingPrice      Int      @default(199)
+  activeWorkersCount Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  workers            WorkerProfile[]
+  workerServices     WorkerService[]
+  requests           ServiceRequest[]
+}
+
+model WorkerService {
+  id                String          @id @default(cuid())
+  workerProfileId   String
+  workerProfile     WorkerProfile   @relation(fields: [workerProfileId], references: [id], onDelete: Cascade)
+  serviceCategoryId String
+  serviceCategory   ServiceCategory @relation(fields: [serviceCategoryId], references: [id])
+  customTitle       String
+  price             Int             @default(250)
+  description       String?
+  createdAt         DateTime        @default(now())
+}
+
+model ServiceRequest {
+  id                 String         @id @default(cuid())
+  customerId         String
+  customer           User           @relation("CustomerRequests", fields: [customerId], references: [id])
+  workerId           String
+  worker             User           @relation("WorkerRequests", fields: [workerId], references: [id])
+  serviceCategoryId  String
+  serviceCategory    ServiceCategory @relation(fields: [serviceCategoryId], references: [id])
+  problemTitle       String
+  problemDescription String
+  images             String?        // JSON array or comma separated
+  urgency            String         @default("TODAY") // ASAP | TODAY | TOMORROW | CUSTOM
+  scheduledTime      String         @default("ASAP")
+  locationAddress    String
+  locationCity       String         @default("Prayagraj")
+  locationLocality   String         @default("Civil Lines")
+  locationLat        Float?
+  locationLng        Float?
+  estimatedBudget    Int?
+  status             String         @default("REQUESTED") // REQUESTED | ACCEPTED | DECLINED | ON_THE_WAY | ARRIVED | IN_PROGRESS | COMPLETED | CANCELLED
+  cancelReason       String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  timeline           JobTimeline[]
+  review             Review?
+  messages           Message[]
+}
+
+model JobTimeline {
+  id               String         @id @default(cuid())
+  serviceRequestId String
+  serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  status           String
+  note             String?
+  actorId          String?
+  createdAt        DateTime       @default(now())
+}
+
+model Review {
+  id                 String         @id @default(cuid())
+  serviceRequestId   String         @unique
+  serviceRequest     ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  customerId         String
+  customer           User           @relation("CustomerReviews", fields: [customerId], references: [id])
+  workerId           String
+  worker             User           @relation("WorkerReviews", fields: [workerId], references: [id])
+  ratingOverall      Float
+  ratingPunctuality  Float?
+  ratingQuality      Float?
+  ratingValue        Float?
+  comment            String
+  createdAt          DateTime       @default(now())
+}
+
+model Message {
+  id               String         @id @default(cuid())
+  serviceRequestId String
+  serviceRequest   ServiceRequest @relation(fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  senderId         String
+  sender           User           @relation("SentMessages", fields: [senderId], references: [id])
+  receiverId       String
+  receiver         User           @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  content          String
+  mediaUrl         String?
+  isRead           Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("SYSTEM")
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model SavedWorker {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   User     @relation("CustomerSavedWorkers", fields: [customerId], references: [id], onDelete: Cascade)
+  workerId   String
+  worker     User     @relation("WorkerSavedBy", fields: [workerId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([customerId, workerId])
+}
+
+model Report {
+  id             String       @id @default(cuid())
+  reporterId     String
+  reporter       User         @relation("ReporterUser", fields: [reporterId], references: [id])
+  reportedUserId String
+  reportedUser   User         @relation("ReportedUser", fields: [reportedUserId], references: [id])
+  reason         String
+  description    String
+  status         String       @default("PENDING") // PENDING | RESOLVED | DISMISSED
+  createdAt      DateTime     @default(now())
+}
+
+model AdminAction {
+  id           String   @id @default(cuid())
+  adminId      String
+  admin        User     @relation("AdminUser", fields: [adminId], references: [id])
+  targetUserId String?
+  actionType   String   // VERIFY_WORKER | REJECT_WORKER | SUSPEND_USER | RESTORE_USER | RESOLVE_REPORT
+  notes        String?
+  createdAt    DateTime @default(now())
+}
