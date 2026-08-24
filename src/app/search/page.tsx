@@ -7,6 +7,7 @@ import WorkerCard from '@/components/home/WorkerCard';
 import { WorkerCardSkeleton } from '@/components/common/SkeletonLoader';
 import RequestServiceModal from '@/components/booking/RequestServiceModal';
 import { ServiceCategoryDTO, WorkerCardDTO } from '@/lib/types';
+import { defaultCategories } from '@/components/home/CategoryGrid';
 import { useAuth } from '@/context/AuthContext';
 
 function SearchContent() {
@@ -17,7 +18,7 @@ function SearchContent() {
 
   const { activeCity, activeLocality } = useAuth();
   const [query, setQuery] = useState(initialQuery);
-  const [categories, setCategories] = useState<ServiceCategoryDTO[]>([]);
+  const [categories, setCategories] = useState<ServiceCategoryDTO[]>(defaultCategories);
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [availableOnly, setAvailableOnly] = useState(false);
   const [verifiedOnly, setVerifiedOnly] = useState(false);

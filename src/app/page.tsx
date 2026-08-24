@@ -71,19 +71,11 @@ export default function HomePage() {
 
         {/* Categories Section */}
         <section>
-          {loading && categories.length === 0 ? (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-              {[...Array(6)].map((_, i) => (
-                <CategorySkeleton key={i} />
-              ))}
-            </div>
-          ) : (
-            <CategoryGrid
-              categories={categories}
-              selectedSlug={selectedCategory}
-              onSelectCategory={handleCategorySelect}
-            />
-          )}
+          <CategoryGrid
+            categories={categories}
+            selectedSlug={selectedCategory}
+            onSelectCategory={handleCategorySelect}
+          />
         </section>
 
         {/* Available Professionals Section */}
