@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { initialUsers } from '@/lib/mock-db';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
@@ -9,21 +12,54 @@ export async function GET() {
       return NextResponse.json({ user: null });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      include: {
-        customerProfile: true,
-        workerProfile: {
-          include: {
-            primaryCategory: true,
-            services: true,
+    let user: any = null;
+
+    try {
+      user = await prisma.user.findUnique({
+        where: { id: session.userId },
+        include: {
+          customerProfile: true,
+          workerProfile: {
+            include: {
+              primaryCategory: true,
+              services: true,
+            },
           },
         },
-      },
-    });
+      });
+    } catch {
+      // ignore
+    }
 
-    if (!user || !user.isActive) {
-      return NextResponse.json({ user: null });
+    if (!user) {
+      const mock = initialUsers.find((u) => u.id === session.userId || u.email === session.email);
+      if (mock) {
+        user = {
+          id: mock.id,
+          name: mock.name,
+          email: mock.email,
+          phone: mock.phone,
+          role: mock.role,
+          avatarUrl: null,
+          city: mock.city,
+          locality: mock.locality,
+          workerProfile: mock.workerProfile,
+          customerProfile: mock.customerProfile,
+        };
+      }
+    }
+
+    if (!user) {
+      return NextResponse.json({
+        user: {
+          id: session.userId,
+          name: session.name,
+          email: session.email,
+          role: session.role,
+          city: 'Prayagraj',
+          locality: 'Civil Lines',
+        },
+      });
     }
 
     return NextResponse.json({

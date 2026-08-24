@@ -7,7 +7,7 @@ import WorkerCard from '@/components/home/WorkerCard';
 import { WorkerCardSkeleton } from '@/components/common/SkeletonLoader';
 import RequestServiceModal from '@/components/booking/RequestServiceModal';
 import { ServiceCategoryDTO, WorkerCardDTO } from '@/lib/types';
-import { defaultCategories } from '@/components/home/CategoryGrid';
+import { defaultCategories } from '@/lib/categories-data';
 import { useAuth } from '@/context/AuthContext';
 
 function SearchContent() {

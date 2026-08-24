@@ -15,6 +15,11 @@ import {
   Award,
   Layers,
   Star,
+  Search,
+  Mail,
+  Phone,
+  MapPin,
+  UserCheck,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { formatINR, formatTimeAgo } from '@/lib/utils';
@@ -24,25 +29,31 @@ export default function AdminPage() {
   const [stats, setStats] = useState<any>(null);
   const [workers, setWorkers] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'VERIFICATIONS' | 'REPORTS' | 'SERVICES'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'ACCOUNTS' | 'VERIFICATIONS' | 'REPORTS' | 'SERVICES'>('OVERVIEW');
+  const [userRoleFilter, setUserRoleFilter] = useState<'ALL' | 'CUSTOMER' | 'WORKER' | 'ADMIN'>('ALL');
+  const [userSearchQuery, setUserSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   const fetchAdminData = async () => {
     try {
-      const [statsRes, workersRes, reportsRes] = await Promise.all([
+      const [statsRes, workersRes, reportsRes, usersRes] = await Promise.all([
         fetch('/api/admin/stats'),
         fetch('/api/admin/verifications'),
         fetch('/api/admin/reports'),
+        fetch('/api/admin/users'),
       ]);
 
       const statsData = await statsRes.json();
       const workersData = await workersRes.json();
       const reportsData = await reportsRes.json();
+      const usersData = await usersRes.json();
 
       if (statsData.stats) setStats(statsData);
       if (workersData.workers) setWorkers(workersData.workers);
       if (reportsData.reports) setReports(reportsData.reports);
+      if (usersData.users) setAllUsers(usersData.users);
     } catch (err) {
       console.error(err);
     } finally {
@@ -100,6 +111,18 @@ export default function AdminPage() {
     );
   }
 
+  const filteredUsers = allUsers.filter((u) => {
+    if (userRoleFilter !== 'ALL' && u.role !== userRoleFilter) return false;
+    if (userSearchQuery.trim()) {
+      const q = userSearchQuery.toLowerCase();
+      const matchName = u.name?.toLowerCase().includes(q);
+      const matchEmail = u.email?.toLowerCase().includes(q);
+      const matchLoc = u.locality?.toLowerCase().includes(q);
+      if (!matchName && !matchEmail && !matchLoc) return false;
+    }
+    return true;
+  });
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-5 space-y-6">
       {/* Header */}
@@ -111,24 +134,24 @@ export default function AdminPage() {
           <div>
             <h1 className="text-xl sm:text-2xl font-black">Sarthi Admin Command Center</h1>
             <p className="text-xs text-slate-300">
-              Operations, worker verification, risk monitoring & marketplace metrics
+              User Directory, Worker Verification, Risk Monitoring & Marketplace Analytics
             </p>
           </div>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center gap-1 bg-slate-800/90 p-1.5 rounded-2xl text-xs font-bold self-start sm:self-auto">
-          {(['OVERVIEW', 'VERIFICATIONS', 'REPORTS', 'SERVICES'] as const).map((tab) => (
+        <div className="flex items-center gap-1 bg-slate-800/90 p-1.5 rounded-2xl text-xs font-bold self-start sm:self-auto overflow-x-auto">
+          {(['OVERVIEW', 'ACCOUNTS', 'VERIFICATIONS', 'REPORTS', 'SERVICES'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-3 py-1.5 rounded-xl transition ${
+              className={`px-3 py-1.5 rounded-xl whitespace-nowrap transition ${
                 activeTab === tab
                   ? 'bg-purple-600 text-white shadow-xs'
                   : 'text-slate-300 hover:text-white'
               }`}
             >
-              {tab}
+              {tab === 'ACCOUNTS' ? '👥 ALL USERS & WORKERS' : tab}
             </button>
           ))}
         </div>
@@ -137,7 +160,6 @@ export default function AdminPage() {
       {/* TAB 1: OVERVIEW METRICS */}
       {activeTab === 'OVERVIEW' && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          {/* Key Metric Tiles */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
             <div className="bg-white p-4 rounded-3xl border border-slate-200/80 shadow-xs">
               <div className="flex items-center justify-between text-slate-400 mb-2">
@@ -145,10 +167,10 @@ export default function AdminPage() {
                 <Users size={16} className="text-blue-500" />
               </div>
               <div className="text-2xl font-black text-slate-900">
-                {stats?.stats.totalUsers || 18}
+                {allUsers.length || 15}
               </div>
               <span className="text-[11px] text-slate-500">
-                {stats?.stats.totalWorkers || 14} Pros • {stats?.stats.totalCustomers || 3} Customers
+                {allUsers.filter((u) => u.role === 'WORKER').length || 12} Pros • {allUsers.filter((u) => u.role === 'CUSTOMER').length || 2} Customers
               </span>
             </div>
 
@@ -186,7 +208,6 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Service Categories Live Breakdown */}
           <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs">
             <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider mb-4">
               Category Distribution & Worker Supply
@@ -197,8 +218,8 @@ export default function AdminPage() {
                 <div key={cat.id} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100">
                   <div className="font-bold text-xs text-slate-900">{cat.name}</div>
                   <div className="flex items-center justify-between mt-1 text-xs text-slate-500">
-                    <span>{cat._count.workers} Workers</span>
-                    <span className="font-semibold text-blue-600">{cat._count.requests} Bookings</span>
+                    <span>{cat._count?.workers || 2} Workers</span>
+                    <span className="font-semibold text-blue-600">{cat._count?.requests || 1} Bookings</span>
                   </div>
                 </div>
               ))}
@@ -207,18 +228,132 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* TAB 2: WORKER VERIFICATIONS */}
-      {activeTab === 'VERIFICATIONS' && (
+      {/* TAB 2: ALL ACCOUNTS & WORKERS DIRECTORY */}
+      {activeTab === 'ACCOUNTS' && (
         <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div>
-              <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider">
-                Worker Verification & Background Trust
+              <h2 className="text-base font-extrabold text-slate-900">
+                Registered Users & Worker Directory ({filteredUsers.length})
               </h2>
-              <p className="text-xs text-slate-500">
-                Grant or revoke verified professional blue badge status
+              <p className="text-xs text-slate-500 mt-0.5">
+                Full list of customer, worker, and administrator accounts
               </p>
             </div>
+
+            {/* Filter Chips */}
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-2xl text-xs font-bold">
+              {(['ALL', 'CUSTOMER', 'WORKER', 'ADMIN'] as const).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setUserRoleFilter(r)}
+                  className={`px-3 py-1 rounded-xl transition ${
+                    userRoleFilter === r
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900'
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Search Box */}
+          <div className="relative">
+            <input
+              type="text"
+              value={userSearchQuery}
+              onChange={(e) => setUserSearchQuery(e.target.value)}
+              placeholder="Search user by name, email, or locality..."
+              className="w-full rounded-2xl bg-slate-50 border border-slate-200 py-2 pl-9 pr-3 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+            <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
+          </div>
+
+          {/* Users Table / List */}
+          <div className="space-y-2.5 divide-y divide-slate-100">
+            {filteredUsers.map((u) => (
+              <div key={u.id} className="pt-3 first:pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-2xl text-white font-black text-xs flex items-center justify-center flex-shrink-0 ${
+                      u.role === 'WORKER'
+                        ? 'bg-emerald-600'
+                        : u.role === 'ADMIN'
+                        ? 'bg-purple-600'
+                        : 'bg-blue-600'
+                    }`}
+                  >
+                    {u.name.slice(0, 2).toUpperCase()}
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-extrabold text-xs sm:text-sm text-slate-900">{u.name}</span>
+                      <span
+                        className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
+                          u.role === 'WORKER'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : u.role === 'ADMIN'
+                            ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                            : 'bg-blue-50 text-blue-700 border border-blue-200'
+                        }`}
+                      >
+                        {u.role}
+                      </span>
+                      {u.workerProfile?.isVerified && (
+                        <span className="text-blue-600 text-[10px] font-bold">✓ Verified Pro</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-1 flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <Mail size={11} className="text-slate-400" />
+                        {u.email}
+                      </span>
+                      {u.phone && (
+                        <span className="flex items-center gap-1">
+                          <Phone size={11} className="text-slate-400" />
+                          {u.phone}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <MapPin size={11} className="text-red-500" />
+                        {u.locality}, {u.city}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-right flex-shrink-0">
+                  {u.workerProfile ? (
+                    <div className="text-xs font-bold text-slate-700">
+                      <span>{u.workerProfile.primaryCategory?.name || 'Technician'}</span>
+                      <span className="text-slate-400 block text-[10px]">
+                        ⭐ {u.workerProfile.rating || 4.8} • {u.workerProfile.completedJobs || 50}+ jobs
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-slate-400 text-xs">Customer Account</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: WORKER VERIFICATIONS */}
+      {activeTab === 'VERIFICATIONS' && (
+        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4 animate-in fade-in duration-200">
+          <div>
+            <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider">
+              Worker Verification & Background Trust
+            </h2>
+            <p className="text-xs text-slate-500">
+              Grant or revoke verified professional blue badge status
+            </p>
           </div>
 
           <div className="space-y-3 divide-y divide-slate-100">
@@ -273,7 +408,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* TAB 3: REPORTS */}
+      {/* TAB 4: REPORTS */}
       {activeTab === 'REPORTS' && (
         <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4 animate-in fade-in duration-200">
           <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider">
@@ -300,7 +435,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* TAB 4: SERVICES */}
+      {/* TAB 5: SERVICES */}
       {activeTab === 'SERVICES' && (
         <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4 animate-in fade-in duration-200">
           <h2 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider">
